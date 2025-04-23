@@ -1,0 +1,49 @@
+
+<div class="container d-flex justify-content-center align-items-center min-vh-100">
+
+  <!----------------------- Login Container -------------------------->
+
+  <div class="row border rounded-5 p-3 bg-white shadow box-area">
+    <!--------------------------- Left Box ----------------------------->
+
+    <!-------------------- ------ Right Box ---------------------------->
+
+    <div class="container-fluid">
+      <div class="row align-items-center">
+        <div class="header-text mb-4">
+          <h2>Crea tu cuenta</h2>
+        </div>
+        <form (ngSubmit)="register()">
+       
+
+          <div class="input-group mb-3">
+            <input
+            [(ngModel)]="name" name="name" placeholder="Name" required
+              class="form-control form-control-lg bg-light fs-6"
+            />
+          </div>
+          <div class="input-group mb-4">
+            <input
+              [(ngModel)]="email" name="email" placeholder="Email" required
+              class="form-control form-control-lg bg-light fs-6"
+            />
+          </div>
+          <div class="input-group mb-4">
+            <input
+              [(ngModel)]="password" name="password" type="password" placeholder="Password" required
+              class="form-control form-control-lg bg-light fs-6"
+            />
+          </div>
+          <div class="input-group mb-3">
+            <button class="btn btn-lg btn-primary w-100 fs-6">
+              Registrate
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+  

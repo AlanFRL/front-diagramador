@@ -1,0 +1,66 @@
+<header>
+    <app-navbar></app-navbar>
+</header>
+  
+  <div class="container-fluid">
+    <div class="row">
+      <!-- Sidebar -->
+      <div class="col-md-2 bg-light" style="min-height: 100vh;">
+        <h5 class="mt-4">Elementos</h5>
+        <ul class="nav flex-column">
+          <li class="nav-item">
+            <button class="nav-link" (click)="setClass('Class')">Clase</button>
+          </li>
+          <li class="nav-item"> 
+              <button class="nav-link" (click)="setClass('AssociationClass')">ClaseAsociación</button> 
+          </li>
+
+          <li class="nav-item">
+            <button class="nav-link" (click)="setLinkType('Generalization')">Herencia</button>
+          </li>
+          <li class="nav-item">
+            <button (click)="setLinkType('Association')" class="nav-link">Asociación</button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" (click)="setLinkType('Composition')">Composición</button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" (click)="setLinkType('Aggregation')">Agregación</button>
+          </li>
+          <li>
+            <button class="nav-link" (click)="setLinkType('nton')">Asociación n to n</button>
+          </li>
+          <li>
+            <button class="nav-link" (click)="setLinkType('Conector')">Conector</button>
+          </li>
+            
+          
+          <!-- <li class="nav-item">
+            <button class="nav-link" (click)="setLinkType('ClassAssociation')">ClassAssociation</button>
+          </li>           -->
+          <!-- <li>
+            <button class="nav-link" (click)="setLinkType('Dependency')">Dependencia</button>
+          </li> -->
+        </ul>
+        <h5 class="mt-4">Acciones</h5>
+        <ul class="nav flex-column">
+          <app-class-diagram-export [model]="xmlDocument"></app-class-diagram-export>
+          <li>
+            <button class="nav-link" (click)="saveDiagram()">Guardar</button>
+          </li>
+          <app-class-diagram-import (modelChange)="onModelChange($event)"></app-class-diagram-import>
+          <app-code-generation [model]="jsonmodel"></app-code-generation>
+
+
+        </ul>
+        
+          
+      </div>
+  
+      <!-- Diagrama -->
+      <div class="col-md-10">
+        <div id="myDiagramDiv" style="height: 600px; background-color: #f9f9f9;"></div>
+        
+      </div>
+    </div>
+  </div>

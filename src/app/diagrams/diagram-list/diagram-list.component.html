@@ -1,0 +1,110 @@
+<app-navbar></app-navbar>
+
+<div class="container d-flex justify-content-center mt-5">
+  <!-- Card Tus Diagramas -->
+  <div class="card me-4" style="width: 40rem;">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      Tus Diagramas
+      <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#nuevodbModal">Nuevo Diagrama</button>
+    </div>
+    
+    <ul class="list-group list-group-flush">
+      <li *ngFor="let diagram of diagramsAdmin" class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+          {{ diagram.name }} - {{ diagram.description }}
+        </div>
+        <div class="d-flex align-items-center">
+          <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#ViewcodeModal"> Ver Código</button>
+          <div class="modal fade" id="ViewcodeModal" tabindex="-1" aria-labelledby="ViewcodeModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="ViewcodeModalLabel">Código de Sala</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <p>{{ diagram.roomCode }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary me-2" (click)="openDiagram(diagram.id)">Abrir</button>
+          <button class="btn btn-danger" (click)="deleteDiagram(diagram.id)">Eliminar</button> 
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Card Tus Colaboraciones -->
+  <div class="card" style="width: 35rem;">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      Tus Colaboraciones
+      <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#collabModal">Nueva Colaboración</button>
+    </div>
+
+    <ul class="list-group list-group-flush">
+      <li *ngFor="let diagram of diagramsCollaborator" class="list-group-item d-flex justify-content-between align-items-center">
+        {{ diagram.name }} - {{ diagram.description }}
+        <button class="btn btn-primary me-2" (click)="openDiagram(diagram.id)">Abrir</button>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- Modal para ingresar código de sala -->
+<div class="modal fade" id="collabModal" tabindex="-1" aria-labelledby="collabModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="collabModalLabel">Ingresar código de sala</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form (ngSubmit)="collaborate()">
+          <div class="mb-3">
+            <label for="roomCode" class="form-label">Código de sala</label>
+            <input type="text" class="form-control" id="roomCode" placeholder="Ingresa el código" [(ngModel)]="roomCode" name="roomCode">
+          </div>
+          <button type="submit" class="btn btn-primary">Unirse</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<div class="modal fade" id="nuevodbModal" tabindex="-1" aria-labelledby="nuevodbModal" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="nuevodbModal">Ingresa nombre de diagrama</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form (ngSubmit)="create()">
+          <div class="mb-3">
+            <label for="name" class="form-label">Nombre del diagrama</label>
+            <input type="text" class="form-control" id="name" placeholder="Ingresa el nombre del diagrama" [(ngModel)]="diagramName" name="name">
+          </div>
+          <button type="submit" class="btn btn-primary">Crear</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- <script>
+  // Función para mostrar/ocultar el código del input
+  function toggleCode(button) {
+    const input = button.previousElementSibling;
+    if (input.type === "password") {
+      input.type = "text";
+      button.textContent = "Ocultar";
+    } else {
+      input.type = "password";
+      button.textContent = "Mostrar";
+    }
+  }
+</script> -->

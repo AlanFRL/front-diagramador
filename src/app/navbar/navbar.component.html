@@ -1,0 +1,22 @@
+<nav class="navbar bg-red border-bottom border-body" style="background-color: #101067">
+    <div class="container-fluid">
+      <a class="navbar-brand fs-2 text-light" href="#">
+        <img
+          src="assets/images/image.png"
+          alt="Logo"
+          width="55"
+          height="49"
+          class="d-inline-block align-text-top"
+        />
+        DiagramClass
+      </a>
+      <a class="navbar-brand fs-2 text-light" [routerLink]="['/diagrams/index']" >
+        Diagramas
+      </a>
+      <form class="d-flex">
+        <a  (click)="logout()" class="btn btn-light btn-lg me-2" role="button">
+          Cerrar Sesión
+        </a>
+      </form>
+    </div>
+  </nav>
