@@ -1,3 +1,4 @@
+// File: src\app\socket.service.ts
 import { Injectable,EventEmitter } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { Observable } from 'rxjs';

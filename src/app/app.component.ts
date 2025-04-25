@@ -1,3 +1,4 @@
+// File: src\app\app.component.ts
 import { Component, AfterViewInit, OnInit, OnDestroy } from '@angular/core';
 
 @Component({

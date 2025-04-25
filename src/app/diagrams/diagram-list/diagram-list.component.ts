@@ -1,3 +1,4 @@
+// File: src\app\diagrams\diagram-list\diagram-list.component.ts
 import { Component, OnInit } from '@angular/core';
 import { DiagramService } from 'src/app/services/diagram.service';
 import { Router } from '@angular/router';

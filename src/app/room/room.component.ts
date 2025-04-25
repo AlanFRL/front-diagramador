@@ -1,3 +1,4 @@
+// File: src\app\room\room.component.ts
 import { CookieService } from 'ngx-cookie-service';
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
