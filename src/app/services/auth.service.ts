@@ -9,10 +9,10 @@ import { Router } from '@angular/router';
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = 'http://localhost:3000/auth';  // URL del backend
+  //private apiUrl = 'http://localhost:3000/auth';  // URL del backend
   //https://api-diagramador-k9q5.onrender.com
   //http://localhost:3000/auth
-  //private apiUrl = 'https://api-diagramador-k9q5.onrender.com/auth';  // URL del backend
+  private apiUrl = 'https://back-diagramador.onrender.com/auth';  // URL del backend
 
 
   constructor(private http: HttpClient, private router: Router) { }
@@ -31,6 +31,7 @@ export class AuthService {
 
   logout(): void {
     localStorage.removeItem('token');
+    localStorage.removeItem('userName'); // 🔥 también borra el nombre guardado
     this.router.navigate(['/auth/login']);
   }
 
@@ -44,4 +45,15 @@ export class AuthService {
   getToken(): string | null {
     return localStorage.getItem('token');
   }
+
+  getUserInfo(): any {
+    const token = this.getToken();
+    if (!token) return null;
+  
+    const helper = new JwtHelperService();
+    const decodedToken = helper.decodeToken(token);
+  
+    return decodedToken;
+  }
+  
 }

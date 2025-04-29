@@ -12,11 +12,13 @@
     <ul class="list-group list-group-flush">
       <li *ngFor="let diagram of diagramsAdmin" class="list-group-item d-flex justify-content-between align-items-center">
         <div>
-          {{ diagram.name }} - {{ diagram.description }}
+          {{ diagram.name }}
         </div>
         <div class="d-flex align-items-center">
-          <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#ViewcodeModal"> Ver Código</button>
-          <div class="modal fade" id="ViewcodeModal" tabindex="-1" aria-labelledby="ViewcodeModalLabel" aria-hidden="true">
+          <button class="btn btn-success me-2" data-bs-toggle="modal" [attr.data-bs-target]="'#ViewcodeModal' + diagram.id">Ver Código</button>
+
+          <!-- Modal dinámico para este diagrama -->
+          <div class="modal fade" [id]="'ViewcodeModal' + diagram.id" tabindex="-1" aria-labelledby="ViewcodeModalLabel" aria-hidden="true">
             <div class="modal-dialog">
               <div class="modal-content">
                 <div class="modal-header">
@@ -45,7 +47,7 @@
 
     <ul class="list-group list-group-flush">
       <li *ngFor="let diagram of diagramsCollaborator" class="list-group-item d-flex justify-content-between align-items-center">
-        {{ diagram.name }} - {{ diagram.description }}
+        {{ diagram.name }}
         <button class="btn btn-primary me-2" (click)="openDiagram(diagram.id)">Abrir</button>
       </li>
     </ul>

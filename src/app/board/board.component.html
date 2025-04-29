@@ -1,51 +1,301 @@
-<!-- File: src\app\board\board.component.html -->
+<!-- Navbar -->
 <header>
-    <app-navbar></app-navbar>
+  <app-navbar></app-navbar>
+  <!-- ✅ Aquí sigue tu navbar, intacto -->
 </header>
-  
-  <div class="container-fluid">
-    <div class="row">
-      <!-- Sidebar -->
-      <div class="col-md-2 bg-light" style="min-height: 100vh;">
-        <h5 class="mt-4">Elementos</h5>
-        <ul class="nav flex-column">
-          <li class="nav-item">
-            <button class="nav-link" (click)="setClass('Button')">Button</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" (click)="setClass('Input')">Input</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" (click)="setClass('Frame')">Frame</button>
-          </li>
-            
-          
-          <!-- <li class="nav-item">
-            <button class="nav-link" (click)="setLinkType('ClassAssociation')">ClassAssociation</button>
-          </li>           -->
-          <!-- <li>
-            <button class="nav-link" (click)="setLinkType('Dependency')">Dependencia</button>
-          </li> -->
-        </ul>
-        <h5 class="mt-4">Acciones</h5>
-        <ul class="nav flex-column">
-          <app-class-diagram-export [model]="xmlDocument"></app-class-diagram-export>
-          <li>
-            <button class="nav-link" (click)="saveDiagram()">Guardar</button>
-          </li>
-          <app-class-diagram-import (modelChange)="onModelChange($event)"></app-class-diagram-import>
-          <app-code-generation [model]="jsonmodel"></app-code-generation>
 
+<!-- Contenedor general -->
+<div class="container-fluid">
+  <div class="row">
+    <!-- Sidebar (mejorado con columnas) -->
+    <div class="col-md-2 bg-light" style="min-height: 100vh">
+      <!-- Nuevo Sidebar Mejorado -->
+      <div class="accordion mt-4" id="sidebarAccordion">
+        <!-- Sección: Contenedores -->
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingContainers">
+            <button
+              class="accordion-button collapsed"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#collapseContainers"
+              aria-expanded="false"
+              aria-controls="collapseContainers"
+            >
+              <i class="bi bi-box"></i> &nbsp; Contenedores
+            </button>
+          </h2>
+          <div
+            id="collapseContainers"
+            class="accordion-collapse collapse"
+            aria-labelledby="headingContainers"
+            data-bs-parent="#sidebarAccordion"
+          >
+            <div class="accordion-body p-2">
+              <button
+                class="btn btn-sm btn-outline-primary w-100 mb-2"
+                (click)="setClass('Frame')"
+              >
+                <i class="bi bi-file-earmark"></i> Página
+              </button>
+              <button
+                class="btn btn-sm btn-outline-primary w-100 mb-2"
+                (click)="setClass('Crud')"
+              >
+                <i class="bi bi-database"></i> CRUD
+              </button>
+              <button
+                class="btn btn-sm btn-outline-primary w-100 mb-2"
+                (click)="setClass('Sidebar')"
+              >
+                <i class="bi bi-layout-sidebar"></i> Sidebar
+              </button>
+              <button
+                class="btn btn-sm btn-outline-primary w-100 mb-2"
+                (click)="setClass('Navbar')"
+              >
+                <i class="bi bi-menu-button-wide"></i> Navbar
+              </button>
+              <button
+                class="btn btn-sm btn-outline-primary w-100 mb-2"
+                (click)="setClass('Form')"
+              >
+                <i class="bi bi-ui-checks-grid"></i> Formulario
+              </button>
+              <button
+                class="btn btn-sm btn-outline-primary w-100 mb-2"
+                (click)="setClass('Card')"
+              >
+                <i class="bi bi-card-text"></i> Card
+              </button>
+              <button
+                class="btn btn-sm btn-outline-primary w-100 mb-2"
+                (click)="setClass('List')"
+              >
+                <i class="bi bi-table"></i> Lista
+              </button>
+            </div>
+          </div>
+        </div>
 
-        </ul>
-        
-          
+        <!-- Sección: Campos de Entrada -->
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingInputs">
+            <button
+              class="accordion-button collapsed"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#collapseInputs"
+              aria-expanded="false"
+              aria-controls="collapseInputs"
+            >
+              <i class="bi bi-input-cursor-text"></i> &nbsp; Campos de Entrada
+            </button>
+          </h2>
+          <div
+            id="collapseInputs"
+            class="accordion-collapse collapse"
+            aria-labelledby="headingInputs"
+            data-bs-parent="#sidebarAccordion"
+          >
+            <div class="accordion-body p-2">
+              <button
+                class="btn btn-sm btn-outline-secondary w-100 mb-2"
+                (click)="setClass('Input', 'text')"
+              >
+                Texto
+              </button>
+              <button
+                class="btn btn-sm btn-outline-secondary w-100 mb-2"
+                (click)="setClass('Input', 'tel')"
+              >
+                Teléfono
+              </button>
+              <button
+                class="btn btn-sm btn-outline-secondary w-100 mb-2"
+                (click)="setClass('Input', 'email')"
+              >
+                Email
+              </button>
+              <button
+                class="btn btn-sm btn-outline-secondary w-100 mb-2"
+                (click)="setClass('Input', 'password')"
+              >
+                Contraseña
+              </button>
+              <button
+                class="btn btn-sm btn-outline-secondary w-100 mb-2"
+                (click)="setClass('Input', 'number')"
+              >
+                Número
+              </button>
+              <button
+                class="btn btn-sm btn-outline-secondary w-100 mb-2"
+                (click)="setClass('Input', 'select')"
+              >
+                Select
+              </button>
+              <button
+                class="btn btn-sm btn-outline-secondary w-100 mb-2"
+                (click)="setClass('Input', 'date')"
+              >
+                Fecha
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sección: Atributos para CRUD -->
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingAttributes">
+            <button
+              class="accordion-button collapsed"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#collapseAttributes"
+              aria-expanded="false"
+              aria-controls="collapseAttributes"
+            >
+              <i class="bi bi-ui-radios"></i> &nbsp; Atributos y Botones CRUD
+            </button>
+          </h2>
+          <div
+            id="collapseAttributes"
+            class="accordion-collapse collapse"
+            aria-labelledby="headingAttributes"
+            data-bs-parent="#sidebarAccordion"
+          >
+            <div class="accordion-body p-2">
+              <button
+                class="btn btn-sm btn-outline-warning w-100 mb-2"
+                (click)="setClass('Attribute', 'text')"
+              >
+                Texto
+              </button>
+              <button
+                class="btn btn-sm btn-outline-warning w-100 mb-2"
+                (click)="setClass('Attribute', 'number')"
+              >
+                Número
+              </button>
+              <button
+                class="btn btn-sm btn-outline-warning w-100 mb-2"
+                (click)="setClass('Attribute', 'date')"
+              >
+                Fecha
+              </button>
+              <button
+                class="btn btn-sm btn-outline-warning w-100 mb-2"
+                (click)="setClass('Attribute', 'checkbox')"
+              >
+                Boolean
+              </button>
+              <button
+                class="btn btn-sm btn-outline-warning w-100 mb-2"
+                (click)="setClass('CrudButton', 'crear')"
+              >
+                Botón Crear
+              </button>
+              <button
+                class="btn btn-sm btn-outline-warning w-100 mb-2"
+                (click)="setClass('CrudButton', 'editar')"
+              >
+                Botón Editar
+              </button>
+              <button
+                class="btn btn-sm btn-outline-warning w-100 mb-2"
+                (click)="setClass('CrudButton', 'eliminar')"
+              >
+                Botón Eliminar
+              </button>
+          </div>
+        </div>
       </div>
-  
-      <!-- Diagrama -->
-      <div class="col-md-10">
-        <div id="myDiagramDiv" style="height: 600px; background-color: #f9f9f9;"></div>
-        
+
+        <!-- Sección: Elementos y Botones -->
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingElements">
+            <button
+              class="accordion-button collapsed"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#collapseElements"
+              aria-expanded="false"
+              aria-controls="collapseElements"
+            >
+              <i class="bi bi-ui-radios"></i> &nbsp; Elementos y Botones
+            </button>
+          </h2>
+          <div
+            id="collapseElements"
+            class="accordion-collapse collapse"
+            aria-labelledby="headingElements"
+            data-bs-parent="#sidebarAccordion"
+          >
+            <div class="accordion-body p-2">
+              <button
+                class="btn btn-sm btn-outline-success w-100 mb-2"
+                (click)="setClass('Button')"
+              >
+                Botón
+              </button>
+              <button
+                class="btn btn-sm btn-outline-success w-100 mb-2"
+                (click)="setClass('Link')"
+              >
+                Botón Link
+              </button>
+              <button
+                class="btn btn-sm btn-outline-success w-100 mb-2"
+                (click)="setClass('Label')"
+              >
+                Etiqueta
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sección: Acciones -->
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingActions">
+            <button
+              class="accordion-button collapsed"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#collapseActions"
+              aria-expanded="false"
+              aria-controls="collapseActions"
+            >
+              <i class="bi bi-tools"></i> &nbsp; Acciones
+            </button>
+          </h2>
+          <div
+            id="collapseActions"
+            class="accordion-collapse collapse"
+            aria-labelledby="headingActions"
+            data-bs-parent="#sidebarAccordion"
+          >
+            <div class="accordion-body p-2">
+            
+              <button
+                class="btn btn-sm btn-outline-dark w-100 mb-2"
+                (click)="saveDiagram()"
+              >
+                Guardar
+              </button>
+                <app-code-generation [model]="jsonmodel"></app-code-generation>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+
+    <!-- Área principal (Diagrama) -->
+    <div class="col-md-10">
+      <div
+        id="myDiagramDiv"
+        style="height: 600px; background-color: #f9f9f9"
+      ></div>
+    </div>
   </div>
+</div>

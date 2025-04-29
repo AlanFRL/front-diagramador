@@ -20,16 +20,16 @@ export class SocketService {
     //https://serversocket-mjvx.onrender.com
     // });
 
-    
+    /*
     this.socket = io('http://localhost:5000', {
       query: { nameRoom: roomCode }
     });
-    
-   /*
-    this.socket = io('https://serversocket-mjvx.onrender.com', {
+    */
+   
+    this.socket = io('https://sockets-diagramador.onrender.com', {
       query: { nameRoom: roomCode }
     });
-    */
+    
     
     // Mensaje de éxito de conexión
     this.socket.on('connect', () => {

@@ -1,6 +1,7 @@
 <!-- File: src\app\navbar\navbar.component.html -->
 <nav class="navbar bg-red border-bottom border-body" style="background-color: #101067">
-    <div class="container-fluid">
+  <div class="container-fluid d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center">
       <a class="navbar-brand fs-2 text-light" href="#">
         <img
           src="assets/images/image.png"
@@ -9,15 +10,18 @@
           height="49"
           class="d-inline-block align-text-top"
         />
-        DiagramClass
+        MockUpGenerator
       </a>
-      <a class="navbar-brand fs-2 text-light" [routerLink]="['/diagrams/index']" >
-        Diagramas
+      <a class="navbar-brand fs-2 text-light" [routerLink]="['/diagrams/index']">
+        MockUps
       </a>
-      <form class="d-flex">
-        <a  (click)="logout()" class="btn btn-light btn-lg me-2" role="button">
-          Cerrar Sesión
-        </a>
-      </form>
     </div>
-  </nav>
+
+    <div class="d-flex align-items-center">
+      <span class="text-light fw-bold me-3">{{ userName }}</span>
+      <a (click)="logout()" class="btn btn-light btn-lg" role="button">
+        Cerrar Sesión
+      </a>
+    </div>
+  </div>
+</nav>

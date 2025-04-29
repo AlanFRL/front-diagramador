@@ -7,8 +7,8 @@ import { Observable } from 'rxjs';
   providedIn: 'root'
 })
 export class DiagramService {
-  //private apiUrl = 'https://api-diagramador-k9q5.onrender.com/diagrams';
-  private apiUrl = 'http://localhost:3000/diagrams';
+  private apiUrl = 'https://back-diagramador.onrender.com/diagrams';
+  //private apiUrl = 'http://localhost:3000/diagrams';
   //https://api-diagramador-k9q5.onrender.com
   //http://localhost:3000/diagrams
 

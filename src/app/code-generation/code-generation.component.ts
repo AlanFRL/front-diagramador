@@ -1,32 +1,52 @@
+// File: src/app/code-generation/code-generation.component.ts
+
 import { Component, Input } from '@angular/core';
 import * as JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
-// Define interfaces para el modelo
-let mayores: { [key: string]: any } = {};
-interface Property {
-  name: string;
-  type: string;
-  visibility: string;
+// Nuevas interfaces para interpretar tu JSON
+interface CrudPage {
+  crudKey: number;
+  crudName: string;
+  children: (Navbar | Sidebar | List)[];
 }
 
-interface Node {
+interface Navbar {
+  type: 'Navbar';
   key: number;
   name: string;
-  type: string;
-  properties: Property[];
-  x: number;
-  y: number;
+  links: LinkButton[];
 }
 
-interface Link {
-  from: number;
-  to: number;
-  relationship: string;
+interface Sidebar {
+  type: 'Sidebar';
+  key: number;
+  name: string;
+  links: LinkButton[];
+}
+
+interface List {
+  type: 'List';
+  key: number;
+  name: string;
+  modelName: string;
+  attributes: Attribute[];
+  crudButtons: CrudButton[];
+}
+
+interface Attribute {
+  name: string;
   type: string;
-  fromCardinality?: string;
-  toCardinality?: string;
-  labelKeys?: number[];
+  label: string;
+}
+
+interface CrudButton {
+  action: 'crear' | 'editar' | 'eliminar';
+}
+
+interface LinkButton {
+  text: string;
+  routerLink: string;
 }
 
 @Component({
@@ -35,750 +55,849 @@ interface Link {
   styleUrls: ['./code-generation.component.css'],
 })
 export class CodeGenerationComponent {
-  @Input() model: string = ''; // Modelo JSON como string
+  @Input() model: string = '';
 
   constructor() {}
 
-  generateCode() {
+  // 🧩 1. Parsear el modelo JSON a una estructura útil
+  parseModel(): CrudPage[] {
     if (!this.model) {
-      console.error('El modelo JSON no está definido.');
+      console.error('No hay modelo disponible.');
       return [];
     }
 
-    console.log('Iniciando la generación de código...');
-    console.log('Modelo recibido:', this.model);
-
-    let parsedModel: { nodeDataArray: Node[]; linkDataArray: Link[] };
+    let parsed: any;
     try {
-      parsedModel = JSON.parse(this.model); // Parsear el string JSON a objeto
+      parsed = JSON.parse(this.model);
     } catch (error) {
       console.error('Error al parsear el modelo JSON:', error);
       return [];
     }
 
-    const { nodeDataArray, linkDataArray } = parsedModel;
+    const nodes = parsed.nodeDataArray || [];
 
-    if (!nodeDataArray || !linkDataArray) {
-      console.error('El modelo no contiene nodos ni enlaces.');
-      return [];
+    // 1. Encontrar todos los CRUD
+    const crudPages: CrudPage[] = nodes
+      .filter((n: any) => n.category === 'Crud')
+      .map((crudNode: any) => {
+        const crudKey = crudNode.key;
+        const crudName = crudNode.text || 'Unnamed CRUD';
+
+        // 2. Buscar sus hijos: Navbar, Sidebar y List
+        const children = nodes.filter((n: any) => n.group === crudKey);
+
+        // Procesar Navbar
+        const navbars: Navbar[] = children
+          .filter((n: any) => n.category === 'Navbar')
+          .map((navbar: any) => this.parseNavbar(navbar, nodes));
+
+        // Procesar Sidebar
+        const sidebars: Sidebar[] = children
+          .filter((n: any) => n.category === 'Sidebar')
+          .map((sidebar: any) => this.parseSidebar(sidebar, nodes));
+
+        // Procesar List
+        const lists: List[] = children
+          .filter((n: any) => n.category === 'List')
+          .map((list: any) => this.parseList(list, nodes));
+
+        // Devolver el CRUD
+        return {
+          crudKey,
+          crudName,
+          children: [...navbars, ...sidebars, ...lists],
+        };
+      });
+
+    return crudPages;
+  }
+
+  private parseNavbar(navbarNode: any, nodes: any[]): Navbar {
+    const navbarKey = navbarNode.key;
+    const navbarName = navbarNode.text || 'Unnamed Navbar';
+
+    const links = nodes
+      .filter((n: any) => n.group === navbarKey && n.category === 'Link')
+      .sort((a, b) => this.getLocationValue(a.location, 'x') - this.getLocationValue(b.location, 'x'))
+      .map((link: any) => ({
+        text: link.text || 'Link',
+        routerLink: '/' + this.toKebabCase(link.routerLink || ''),
+      }));
+      
+
+    return {
+      type: 'Navbar',
+      key: navbarKey,
+      name: navbarName,
+      links,
+    };
+  }
+
+  private parseSidebar(sidebarNode: any, nodes: any[]): Sidebar {
+    const sidebarKey = sidebarNode.key;
+    const sidebarName = sidebarNode.text || 'Unnamed Sidebar';
+
+    const links = nodes
+      .filter((n: any) => n.group === sidebarKey && n.category === 'Link')
+      .sort((a, b) => this.getLocationValue(a.location, 'y') - this.getLocationValue(b.location, 'y'))
+      .map((link: any) => ({
+        text: link.text || 'Link',
+        routerLink: '/' + this.toKebabCase(link.routerLink || ''),
+      }));      
+
+    return {
+      type: 'Sidebar',
+      key: sidebarKey,
+      name: sidebarName,
+      links,
+    };
+  }
+
+  private parseList(listNode: any, nodes: any[]): List {
+    const listKey = listNode.key;
+    const modelName = listNode.modelName || 'modelo';
+
+    const attributes = nodes
+      .filter((n: any) => n.group === listKey && n.category === 'Attribute')
+      .sort((a, b) => this.getLocationValue(a.location, 'x') - this.getLocationValue(b.location, 'x'))
+      .map((attr: any) => ({
+        name: attr.name || 'campo',
+        type: attr.type || 'string',
+        label: attr.label || 'Campo',
+      }));
+
+    const crudButtons = nodes
+      .filter((n: any) => n.group === listKey && n.category === 'CrudButton')
+      .map((btn: any) => ({
+        action: btn.inputType?.toLowerCase() || 'crear',
+      }));
+
+    return {
+      type: 'List',
+      key: listKey,
+      name: listNode.text || 'Lista',
+      modelName,
+      attributes,
+      crudButtons,
+    };
+  }
+
+  private parseCrudButtonsGlobal(crudNode: any, nodes: any[]): string[] {
+    const crudKey = crudNode.key;
+
+    const globalActions = nodes
+      .filter((n: any) => n.group === crudKey && n.category === 'CrudButton')
+      .map((btn: any) => btn.inputType?.toLowerCase() || '');
+
+    return globalActions;
+  }
+
+  // 🧩 2. Generar todos los archivos en base al modelo parseado
+  // 🧩 Dentro de tu CodeGenerationComponent
+
+  generateFiles(crudPages: CrudPage[]): { path: string; content: string }[] {
+    const files: { path: string; content: string }[] = [];
+  
+    // Banderas para no duplicar componentes
+    let navbarGenerated = false;
+    let sidebarGenerated = false;
+  
+    for (const crud of crudPages) {
+      const crudName = this.toKebabCase(crud.crudName);
+      const modelName = this.getModelNameFromCrud(crud);
+  
+      const pagePath = `src/app/pages/${crudName}/`;
+      const modelPath = `src/app/models/`;
+      const servicePath = `src/app/services/`;
+      const sharedPathNavbar = `src/app/shared/navbar/`;
+      const sharedPathSidebar = `src/app/shared/sidebar/`;
+  
+      // Crear modelos
+      files.push({
+        path: `${modelPath}${modelName}.model.ts`,
+        content: this.generateModel(crud),
+      });
+  
+      // Crear servicios
+      files.push({
+        path: `${servicePath}${modelName}.service.ts`,
+        content: this.generateService(crud),
+      });
+  
+      // Crear páginas CRUD
+      files.push({ path: `${pagePath}${modelName}-index.component.ts`, content: this.generateIndexComponent(crud) });
+      files.push({ path: `${pagePath}${modelName}-index.component.html`, content: this.generateIndexHtml(crud) });
+      files.push({ path: `${pagePath}${modelName}-create.component.ts`, content: this.generateCreateComponent(crud) });
+      files.push({ path: `${pagePath}${modelName}-create.component.html`, content: this.generateCreateHtml(crud) });
+      files.push({ path: `${pagePath}${modelName}-edit.component.ts`, content: this.generateEditComponent(crud) });
+      files.push({ path: `${pagePath}${modelName}-edit.component.html`, content: this.generateEditHtml(crud) });
+  
+      // Navbar y Sidebar (solo una vez)
+      if (!navbarGenerated && crud.children.some((c) => c.type === 'Navbar')) {
+        files.push({ path: `${sharedPathNavbar}navbar.component.ts`, content: this.generateNavbarComponent(crud) });
+        files.push({ path: `${sharedPathNavbar}navbar.component.html`, content: this.generateNavbarHtml(crud) });
+        navbarGenerated = true;
+      }
+      if (!sidebarGenerated && crud.children.some((c) => c.type === 'Sidebar')) {
+        files.push({ path: `${sharedPathSidebar}sidebar.component.ts`, content: this.generateSidebarComponent(crud) });
+        files.push({ path: `${sharedPathSidebar}sidebar.component.html`, content: this.generateSidebarHtml(crud) });
+        sidebarGenerated = true;
+      }
     }
-
-    const classes = this.processClasses(nodeDataArray);
-    const associations = this.processAssociations(linkDataArray);
-
-    if (classes.length === 0) {
-      console.error('No se encontraron clases en el modelo.');
-      return [];
-    }
-
-    console.log('Clases procesadas:', classes);
-    console.log('Relaciones procesadas:', associations);
-
-    const files = this.generateFiles(classes, associations);
-
-    console.log('Archivos generados:', files);
+  
+    // 🔥 Agregar también app.module.ts, app-routing.module.ts y app.component.ts
+    files.push({ path: `src/app/app-routing.module.ts`, content: this.generateAppRoutingModule(crudPages) });
+    files.push({ path: `src/app/app.module.ts`, content: this.generateAppModule(crudPages) });
+    files.push({ path: `src/app/app.component.ts`, content: this.generateAppComponent() });
+  
     return files;
   }
+  
 
-  processClasses(nodeDataArray: Node[]): {
-    id: number;
-    name: string;
-    type: string;
-    attributes: Property[];
-    position: { x: number; y: number };
-  }[] {
-    return nodeDataArray
-      .filter(
-        (node: Node) =>
-          node.type === 'Class' || node.type === 'AssociationClass'
-      )
-      .map((node: Node) => ({
-        id: node.key,
-        name: node.name,
-        type: node.type,
-        attributes: node.properties.filter((prop) => prop.name !== 'id'), // Ignorar duplicados de "id"
-        position: { x: node.x, y: node.y },
-      }));
-  }
+  private generateModel(crud: CrudPage): string {
+    const list = crud.children.find((child) => child.type === 'List') as
+      | List
+      | undefined;
 
-  processAssociations(linkDataArray: Link[]): {
-    from: number;
-    to: number;
-    type: string;
-    fromCardinality: string;
-    toCardinality: string;
-    associationClass?: number | null;
-  }[] {
-    return linkDataArray
-      .filter((link) => link.type !== 'Conector')
-      .map((link: Link) => {
-        if (link.type === 'nton') {
-          const associationClassId = this.findAssociationClass(
-            link.labelKeys,
-            linkDataArray
-          );
-          return {
-            from: link.from,
-            to: link.to,
-            type: link.type,
-            fromCardinality: link.fromCardinality || '',
-            toCardinality: link.toCardinality || '',
-            associationClass: associationClassId,
-          };
-        } else {
-          return {
-            from: link.from,
-            to: link.to,
-            type: link.type,
-            fromCardinality: link.fromCardinality || '',
-            toCardinality: link.toCardinality || '',
-          };
-        }
-      });
-  }
+    if (!list) {
+      console.warn('No se encontró una List en este CRUD:', crud.crudName);
+      return '';
+    }
 
-  findAssociationClass(
-    labelKeys: number[] | undefined,
-    linkDataArray: Link[]
-  ): number | null {
-    if (!labelKeys || labelKeys.length === 0) return null;
+    const modelNameCapitalized = this.capitalizeFirstLetter(list.modelName);
 
-    const labelKey = labelKeys[0];
-    const connector = linkDataArray.find(
-      (link) => link.type === 'Conector' && link.to === labelKey
-    );
-
-    return connector ? connector.from : null;
-  }
-
-  generateFiles(classes: any[], associations: any[]) {
-    const files: { path: string; content: string }[] = [];
-
-    classes.forEach((cls) => {
-      const className = this.capitalize(cls.name);
-
-      // Generar entidades
-      files.push({
-        path: `entities/${className}.java`,
-        content: this.generateEntityCode(cls, associations),
-      });
-
-      // Generar repositorios
-      files.push({
-        path: `repositories/${className}Repository.java`,
-        content: this.generateRepositoryCode(className),
-      });
-
-      // Generar servicios
-      files.push({
-        path: `services/${className}Service.java`,
-        content: this.generateServiceCode(className, cls, associations),
-      });
-
-      // Generar controladores
-      files.push({
-        path: `controllers/${className}Controller.java`,
-        content: this.generateControllerCode(className),
-      });
+    const attributes = list.attributes.map((attr) => {
+      const tsType = this.mapAttributeType(attr.type);
+      return `  ${attr.name}: ${tsType};`;
     });
 
-    return files;
+    return `export interface ${modelNameCapitalized} {
+    id: number;
+  ${attributes.join('\n')}
+  }
+  `;
   }
 
-  generateEntityCode(cls: any, associations: any[]) {
-    let cabecera = `
-    @Entity
-    public class ${cls.name} {
+  private generateService(crud: CrudPage): string {
+    const modelName = this.getModelNameFromCrud(crud); // Ej: "user"
+    const className = this.capitalizeFirstLetter(modelName); // Ej: "User"
+    const list = crud.children.find((child) => child.type === 'List') as List;
+    const attributes = list ? list.attributes : [];
+
+    return `
+  import { Injectable } from '@angular/core';
+  import { ${className} } from '../models/${modelName}.model';
+  
+  @Injectable({
+    providedIn: 'root'
+  })
+  export class ${className}Service {
+    private data: ${className}[] = [];
+  
+    constructor() {
+      // Datos de ejemplo opcional
+      this.data = [
+        ${this.generateMockData(className, attributes)}
+      ];
+    }
+  
+    getAll(): ${className}[] {
+      return this.data;
+    }
+  
+    create(item: ${className}): void {
+      this.data.push(item);
+    }
+  
+    update(index: number, item: ${className}): void {
+      if (index >= 0 && index < this.data.length) {
+        this.data[index] = item;
+      }
+    }
+  
+    delete(index: number): void {
+      if (index >= 0 && index < this.data.length) {
+        this.data.splice(index, 1);
+      }
+    }
+  
+    getByIndex(index: number): ${className} | null {
+      if (index >= 0 && index < this.data.length) {
+        return this.data[index];
+      }
+      return null;
+    }
+  }
+  `;
+  }
+
+  private generateNavbarComponent(crud: CrudPage): string {
+    return `
+  import { Component, Input } from '@angular/core';
+  
+  @Component({
+    selector: 'app-shared-navbar',
+    templateUrl: './navbar.component.html'
+  })
+  export class NavbarComponent {
+    @Input() links: { text: string; routerLink: string }[] = [];
+  }
+  `;
+  }
+
+  private generateNavbarHtml(crud: CrudPage): string {
+    return `
+  <nav class="navbar navbar-expand-lg navbar-light bg-light mb-3">
+    <div class="container-fluid">
+      <a 
+        *ngFor="let link of links" 
+        class="navbar-brand" 
+        [routerLink]="link.routerLink">
+        {{ link.text }}
+      </a>
+    </div>
+  </nav>
+  `;
+  }
+
+  private generateSidebarComponent(crud: CrudPage): string {
+    return `
+  import { Component, Input } from '@angular/core';
+  
+  @Component({
+    selector: 'app-shared-sidebar',
+    templateUrl: './sidebar.component.html'
+  })
+  export class SidebarComponent {
+    @Input() links: { text: string; routerLink: string }[] = [];
+  }
+  `;
+  }
+
+  private generateSidebarHtml(crud: CrudPage): string {
+    return `
+  <aside class="col-2 bg-light p-3">
+    <ul class="nav flex-column">
+      <li 
+        *ngFor="let link of links" 
+        class="nav-item">
+        <a 
+          class="nav-link" 
+          [routerLink]="link.routerLink">
+          {{ link.text }}
+        </a>
+      </li>
+    </ul>
+  </aside>
+  `;
+  }
+
+  private generateIndexComponent(crud: CrudPage): string {
+    const modelName = this.getModelNameFromCrud(crud);
+    const className = this.capitalizeFirstLetter(modelName);
+    const navbar = crud.children.find((c) => c.type === 'Navbar') as Navbar;
+    const sidebar = crud.children.find((c) => c.type === 'Sidebar') as Sidebar;
+
+    return `
+  import { Component } from '@angular/core';
+  import { ${className}Service } from '../../services/${modelName}.service';
+  import { ${className} } from '../../models/${modelName}.model';
+  
+  @Component({
+    selector: 'app-${modelName}-index',
+    templateUrl: './${modelName}-index.component.html'
+  })
+  export class ${className}IndexComponent {
+    items: ${className}[] = [];
+  
+    // 🔥 Para navbar y sidebar
+    navbarLinks = ${navbar ? JSON.stringify(navbar.links, null, 2) : '[]'};
+    sidebarLinks = ${sidebar ? JSON.stringify(sidebar.links, null, 2) : '[]'};
+  
+    constructor(private service: ${className}Service) {
+      this.items = this.service.getAll();
+    }
+  
+    delete(index: number): void {
+      this.service.delete(index);
+      this.items = this.service.getAll();
+    }
+  }
     `;
+  }
 
-    let getsetextras = '';
+  private generateIndexHtml(crud: CrudPage): string {
+    const modelName = this.getModelNameFromCrud(crud);
+    const crudName = this.toKebabCase(crud.crudName);
+    const list = crud.children.find((c) => c.type === 'List') as List;
+    const hasNavbar = crud.children.some((c) => c.type === 'Navbar');
+    const hasSidebar = crud.children.some((c) => c.type === 'Sidebar');
 
-    const attributes = cls.attributes
-      .map(
-        (attr: Property) => `
-    @Column
-    private ${this.mapType(attr.type)} ${this.camelCase(attr.name)};
-    `
-      )
-      .join('');
+    const tableHeaders = list.attributes
+      .map((attr) => `<th>${attr.label}</th>`)
+      .join('\n        ');
 
-    const relationships = associations
-      .filter(
-        (assoc) =>
-          assoc.from === cls.id ||
-          assoc.to === cls.id ||
-          assoc.associationClass === cls.id
-      )
-      .map((assoc) => {
-        if (assoc.associationClass !== cls.id) {
-          const isOwner = assoc.from === cls.id;
-          const relatedClassId = isOwner ? assoc.to : assoc.from;
-          const relatedClassName = this.findClassNameById(relatedClassId);
-
-          if (assoc.type === 'nton') {
-            const associationClassName = this.findClassNameById(assoc.associationClass);
-            getsetextras += `
-        public List<${associationClassName}> get${this.capitalize(associationClassName)}s() {
-            return ${associationClassName.toLowerCase()}s;
-        }
-
-        public void set${this.capitalize(associationClassName)}s(List<${associationClassName}> ${associationClassName.toLowerCase()}s) {
-            this.${associationClassName.toLowerCase()}s = ${associationClassName.toLowerCase()}s;
-        }
-        \n`;
-            return `
-    @OneToMany(mappedBy = "${cls.name.toLowerCase()}")
-    @JsonManagedReference("${cls.name}-${associationClassName}")
-    private List<${associationClassName}> ${associationClassName.toLowerCase()}s;
-    `;
-          } else if (assoc.type === 'Composition') {
-            if (isOwner) {
-              getsetextras += `
-        public List<${relatedClassName}> get${this.capitalize(relatedClassName)}s() {
-            return ${relatedClassName.toLowerCase()}s;
-        }
-
-        public void set${this.capitalize(relatedClassName)}s(List<${relatedClassName}> ${relatedClassName.toLowerCase()}s) {
-            this.${relatedClassName.toLowerCase()}s = ${relatedClassName.toLowerCase()}s;
-        }
-        \n`;
-              return `
-    @OneToMany(mappedBy = "${cls.name.toLowerCase()}", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-    private List<${relatedClassName}> ${relatedClassName.toLowerCase()}s;
-    `;
-            } else {
-              getsetextras += `
-        public ${relatedClassName} get${this.capitalize(relatedClassName)}() {
-            return ${relatedClassName.toLowerCase()};
-        }
-
-        public void set${this.capitalize(relatedClassName)}(${relatedClassName} ${relatedClassName.toLowerCase()}) {
-            this.${relatedClassName.toLowerCase()} = ${relatedClassName.toLowerCase()};
-        }
-        \n`;
-              return `
-    @ManyToOne
-    @JoinColumn(
-      name = "${relatedClassName.toLowerCase()}_id",
-      nullable = false
-    )
-    @JsonBackReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-    private ${relatedClassName} ${relatedClassName.toLowerCase()};
-    `;
-            }
-          } else if (assoc.type === 'Aggregation') {
-            if (isOwner) {
-              getsetextras += `
-        public List<${relatedClassName}> get${this.capitalize(relatedClassName)}s() {
-            return ${relatedClassName.toLowerCase()}s;
-        }
-
-        public void set${this.capitalize(relatedClassName)}s(List<${relatedClassName}> ${relatedClassName.toLowerCase()}s) {
-            this.${relatedClassName.toLowerCase()}s = ${relatedClassName.toLowerCase()}s;
-        }
-        \n`;
-              return `
-    @OneToMany
-    @JoinColumn(name = "${relatedClassName.toLowerCase()}_id")
-    @JsonBackReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-    private List<${relatedClassName}> ${relatedClassName.toLowerCase()}s;
-    `;
-            } else {
-              getsetextras += `
-        public ${relatedClassName} get${this.capitalize(relatedClassName)}() {
-            return ${relatedClassName.toLowerCase()};
-        }
-
-        public void set${this.capitalize(relatedClassName)}(${relatedClassName} ${relatedClassName.toLowerCase()}) {
-            this.${relatedClassName.toLowerCase()} = ${relatedClassName.toLowerCase()};
-        }
-        \n`;
-              return `
-    @ManyToOne
-    @JoinColumn(
-      name = "${relatedClassName.toLowerCase()}_id",
-      nullable = true
-    )
-    @JsonBackReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-    private ${relatedClassName} ${relatedClassName.toLowerCase()};
-    `;
-            }
-          } else if (assoc.type === 'Generalization') {
-            if (isOwner) {
-              cabecera = `
-    @Entity
-    public class ${cls.name} extends ${relatedClassName} {
-    `;
-            } else {
-              cabecera = `
-    @Entity
-    @Inheritance(strategy = InheritanceType.JOINED)
-    public class ${cls.name} {
-    `;
-            }
-          } else if (assoc.type === 'Association') {
-        
-              if (assoc.fromCardinality === '1' && assoc.toCardinality === '0..1') {
-                if (isOwner) {
-                  return `
-        @OneToOne(mappedBy = "${cls.name.toLowerCase()}")
-        @JsonManagedReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-        private ${relatedClassName} ${relatedClassName.toLowerCase()};
-        `;
-                } else {
-                  getsetextras += `
-        public ${relatedClassName} get${this.capitalize(relatedClassName)}() {
-            return ${relatedClassName.toLowerCase()};
-        }
-
-        public void set${this.capitalize(relatedClassName)}(${relatedClassName} ${relatedClassName.toLowerCase()}) {
-            this.${relatedClassName.toLowerCase()} = ${relatedClassName.toLowerCase()};
-        }
-        \n`;
-                  return `
-        @OneToOne
-        @JoinColumn(name = "${relatedClassName.toLowerCase()}_id", nullable = true)
-        @JsonBackReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-        private ${relatedClassName} ${relatedClassName.toLowerCase()};
-        `;
-                }
-              } else if (assoc.fromCardinality === '0..1' && assoc.toCardinality === '1') {
-                if (isOwner) {
-                  getsetextras += `
-        public ${relatedClassName} get${this.capitalize(relatedClassName)}() {
-            return ${relatedClassName.toLowerCase()};
-        }
-
-        public void set${this.capitalize(relatedClassName)}(${relatedClassName} ${relatedClassName.toLowerCase()}) {
-            this.${relatedClassName.toLowerCase()} = ${relatedClassName.toLowerCase()};
-        }
-        \n`;
-                  return `
-        @OneToOne
-        @JoinColumn(name = "${relatedClassName.toLowerCase()}_id", nullable = true)
-        @JsonBackReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-        private ${relatedClassName} ${relatedClassName.toLowerCase()};
-        `; 
-                } else {
-                  return `
-        @OneToOne(mappedBy = "${cls.name.toLowerCase()}")
-        @JsonManagedReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-        private ${relatedClassName} ${relatedClassName.toLowerCase()};
-        `;
-                }
-              } else if (assoc.fromCardinality === '1' && assoc.toCardinality === '1') {
-                if (`${relatedClassName}` in mayores) {
-                  getsetextras += `
-        public ${relatedClassName} get${this.capitalize(relatedClassName)}() {
-            return ${relatedClassName.toLowerCase()};
-        }
-
-        public void set${this.capitalize(relatedClassName)}(${relatedClassName} ${relatedClassName.toLowerCase()}) {
-            this.${relatedClassName.toLowerCase()} = ${relatedClassName.toLowerCase()};
-        }
-        \n`;
-                  return `
-        @OneToOne
-        @JoinColumn(name = "${relatedClassName.toLowerCase()}_id")
-        @JsonBackReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-        private ${relatedClassName} ${relatedClassName.toLowerCase()};
-        `;
-                } else {
-                  mayores[`${cls.name}`] = true;
-                  return `
-        @OneToOne(mappedBy = "${cls.name.toLowerCase()}")
-        @JsonManagedReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-        private ${relatedClassName} ${relatedClassName.toLowerCase()};
-        `;
-                }
-              } else if (assoc.fromCardinality === '1' && assoc.toCardinality.includes('*')) {
-                if (isOwner) {
-                  getsetextras += `
-        public List<${relatedClassName}> get${this.capitalize(relatedClassName)}s() {
-            return ${relatedClassName.toLowerCase()}s;
-        }
-
-        public void set${this.capitalize(relatedClassName)}s(List<${relatedClassName}> ${relatedClassName.toLowerCase()}s) {
-            this.${relatedClassName.toLowerCase()}s = ${relatedClassName.toLowerCase()}s;
-        }
-        \n`;
-                  return `
-        @OneToMany(mappedBy = "${cls.name.toLowerCase()}", cascade = CascadeType.ALL)
-        @JsonManagedReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-        private List<${relatedClassName}> ${relatedClassName.toLowerCase()}s;
-        `;
-                } else {
-                  getsetextras += `
-        public ${relatedClassName} get${this.capitalize(relatedClassName)}() {
-            return ${relatedClassName.toLowerCase()};
-        }
-
-        public void set${this.capitalize(relatedClassName)}(${relatedClassName} ${relatedClassName.toLowerCase()}) {
-            this.${relatedClassName.toLowerCase()} = ${relatedClassName.toLowerCase()};
-        }
-        \n`;
-                  return `
-        @ManyToOne
-        @JoinColumn(name = "${relatedClassName.toLowerCase()}_id")
-        @JsonBackReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-        private ${relatedClassName} ${relatedClassName.toLowerCase()};
-        `;
-                }
-              } else if (assoc.fromCardinality.includes('*') && assoc.toCardinality === '1') {
-                if (isOwner) {
-                  getsetextras += `
-        public ${relatedClassName} get${this.capitalize(relatedClassName)}() {
-            return ${relatedClassName.toLowerCase()};
-        }
-
-        public void set${this.capitalize(relatedClassName)}(${relatedClassName} ${relatedClassName.toLowerCase()}) {
-            this.${relatedClassName.toLowerCase()} = ${relatedClassName.toLowerCase()};
-        }
-        \n`;
-                  return `
-        @ManyToOne
-        @JoinColumn(name = "${relatedClassName.toLowerCase()}_id")
-        @JsonBackReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-        private ${relatedClassName} ${relatedClassName.toLowerCase()};
-        `;    
-                } else {
-                  getsetextras += `
-        public List<${relatedClassName}> get${this.capitalize(relatedClassName)}s() {
-            return ${relatedClassName.toLowerCase()}s;
-        }
-
-        public void set${this.capitalize(relatedClassName)}s(List<${relatedClassName}> ${relatedClassName.toLowerCase()}s) {
-            this.${relatedClassName.toLowerCase()}s = ${relatedClassName.toLowerCase()}s;
-        }
-        \n`;
-                  return `
-        @OneToMany(mappedBy = "${cls.name.toLowerCase()}", cascade = CascadeType.ALL)
-        @JsonManagedReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.to)}")
-        private List<${relatedClassName}> ${relatedClassName.toLowerCase()}s;
-        `;
-                }
-              }
-            
-          }
+    const tableRows = list.attributes
+      .map((attr) => {
+        if (attr.type === 'date') {
+          return `<td>{{ item.${attr.name} | date:'yyyy-MM-dd' }}</td>`;
+        } else if (attr.type === 'checkbox') {
+          return `<td><input type=\"checkbox\" [checked]="item.${attr.name}" disabled></td>`;
         } else {
-          const relatedClassNameFrom = this.findClassNameById(assoc.from);
-          const relatedClassNameTo = this.findClassNameById(assoc.to);
-          getsetextras += `
-        public ${relatedClassNameFrom} get${this.capitalize(relatedClassNameFrom)}() {
-            return ${relatedClassNameFrom.toLowerCase()};
+          return `<td>{{ item.${attr.name} }}</td>`;
         }
-
-        public void set${this.capitalize(relatedClassNameFrom)}(${relatedClassNameFrom} ${relatedClassNameFrom.toLowerCase()}) {
-            this.${relatedClassNameFrom.toLowerCase()} = ${relatedClassNameFrom.toLowerCase()};
-        }
-
-        public ${relatedClassNameTo} get${this.capitalize(relatedClassNameTo)}() {
-            return ${relatedClassNameTo.toLowerCase()};
-        }
-
-        public void set${this.capitalize(relatedClassNameTo)}(${relatedClassNameTo} ${relatedClassNameTo.toLowerCase()}) {
-            this.${relatedClassNameTo.toLowerCase()} = ${relatedClassNameTo.toLowerCase()};
-        }
-        \n`;
-          return `
-    @ManyToOne
-    @JoinColumn(
-      name = "${relatedClassNameFrom.toLowerCase()}_id",
-      nullable = false
-    )
-    @JsonBackReference("${this.findClassNameById(assoc.from)}-${this.findClassNameById(assoc.associationClass)}")
-    private ${relatedClassNameFrom} ${relatedClassNameFrom.toLowerCase()};
-
-    @ManyToOne
-    @JoinColumn(
-      name = "${relatedClassNameTo.toLowerCase()}_id",
-      nullable = false
-    )
-    @JsonBackReference("${this.findClassNameById(assoc.to)}-${this.findClassNameById(assoc.associationClass)}")
-    private ${relatedClassNameTo} ${relatedClassNameTo.toLowerCase()};
-    `;
-        }
-        return '';
       })
-      .join('');
-
-    const gettersSetters = cls.attributes
-      .map(
-        (attr: Property) => `
-    public ${this.mapType(attr.type)} get${this.capitalize(attr.name)}() {
-        return ${this.camelCase(attr.name)};
-    }
-
-    public void set${this.capitalize(attr.name)}(${this.mapType(
-          attr.type
-        )} ${this.camelCase(attr.name)}) {
-        this.${this.camelCase(attr.name)} = ${this.camelCase(attr.name)};
-    }
-    `
-      )
-      .join('');
+      .join('\n        ');
 
     return `
-package com.example.demo.entities;
-
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-import jakarta.persistence.*;
-import java.time.LocalDate;
-import java.util.List;
-
-${cabecera}
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
-
-    ${attributes}
-
-    ${relationships}
-
-    // Getters and setters
-    public Integer getId() {
-        return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
-    }
-    ${gettersSetters}
-
-    ${getsetextras}
-}
-`;
+    <div class=\"container-fluid\">
+  
+      ${hasNavbar ? '<app-shared-navbar [links]="navbarLinks"></app-shared-navbar>' : ''}
+  
+      <div class=\"row\">
+        ${hasSidebar ? '<div class=\"col-2\"><app-shared-sidebar [links]="sidebarLinks"></app-shared-sidebar></div>' : ''}
+        <main class=\"${hasSidebar ? 'col-10' : 'col-12'}\">
+          <h1>${crud.crudName}</h1>
+          <a routerLink=\"/${crudName}/create\" class=\"btn btn-primary mb-3\">Crear Nuevo</a>
+  
+          <table class=\"table table-bordered table-striped\">
+            <thead>
+              <tr>
+                <th>#</th>
+                ${tableHeaders}
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor=\"let item of items; let i = index\">
+                <td>{{ i + 1 }}</td>
+                ${tableRows}
+                <td>
+                  <a [routerLink]=\"['/${crudName}/edit', i]\" class=\"btn btn-sm btn-warning\">Editar</a>
+                  <button (click)=\"delete(i)\" class=\"btn btn-sm btn-danger ms-2\">Eliminar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </main>
+      </div>
+  
+    </div>
+    `;
   }
 
-  generateRepositoryCode(entityName: string): string {
-    return `
-package com.example.demo.repositories;
 
-import com.example.demo.entities.${entityName};
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
-@Repository
-public interface ${entityName}Repository extends JpaRepository<${entityName}, Integer> {
-}
-`;
-  }
-
-  generateServiceCode(entityName: string, cls: any, associations: any[]): string {
-    let saveLogic = '';
-    const dependencies = new Set<string>();
-
-    const relationships = associations
-        .filter(
-            (assoc) =>
-                assoc.from === cls.id ||
-                assoc.to === cls.id ||
-                assoc.associationClass === cls.id
-        )
-        .forEach((assoc) => {
-            if (assoc.associationClass !== cls.id) {
-                const isOwner = assoc.from === cls.id;
-                const relatedClassId = isOwner ? assoc.to : assoc.from;
-                const relatedClassName = this.findClassNameById(relatedClassId);
-
-                if (assoc.type === 'Composition' || assoc.type === 'Aggregation') {
-                    if (!isOwner) {
-                        dependencies.add(`${relatedClassName}Repository`);
-                        saveLogic += `
-        if (entity.get${this.capitalize(relatedClassName)}() != null && entity.get${this.capitalize(relatedClassName)}().getId() != null) {
-            ${relatedClassName} ${this.camelCase(relatedClassName)} = ${this.camelCase(relatedClassName)}Repository.findById(entity.get${this.capitalize(relatedClassName)}().getId()).orElse(null);
-            if (${this.camelCase(relatedClassName)} != null) {
-                entity.set${this.capitalize(relatedClassName)}(${this.camelCase(relatedClassName)});
-            } else {
-                throw new IllegalArgumentException("El/la ${relatedClassName.toLowerCase()} especificado(a) no existe.");
-            }
-        }
-        `;
-                    }
-                } else if (assoc.type === 'Association' && !isOwner) {
-                    dependencies.add(`${relatedClassName}Repository`);
-                    saveLogic += `
-        if (entity.get${this.capitalize(relatedClassName)}() != null && entity.get${this.capitalize(relatedClassName)}().getId() != null) {
-            ${relatedClassName} ${this.camelCase(relatedClassName)} = ${this.camelCase(relatedClassName)}Repository.findById(entity.get${this.capitalize(relatedClassName)}().getId()).orElse(null);
-            if (${this.camelCase(relatedClassName)} != null) {
-                entity.set${this.capitalize(relatedClassName)}(${this.camelCase(relatedClassName)});
-            } else {
-                throw new IllegalArgumentException("El/la ${relatedClassName.toLowerCase()} especificado(a) no existe.");
-            }
-        }
-        `;
-                } else if (assoc.type === 'Association' && assoc.fromCardinality === '1' && assoc.toCardinality === '1') {
-                    if (`${relatedClassName}` in mayores) {
-                        dependencies.add(`${relatedClassName}Repository`);
-                        saveLogic += `
-        if (entity.get${this.capitalize(relatedClassName)}() != null && entity.get${this.capitalize(relatedClassName)}().getId() != null) {
-            ${relatedClassName} ${this.camelCase(relatedClassName)} = ${this.camelCase(relatedClassName)}Repository.findById(entity.get${this.capitalize(relatedClassName)}().getId()).orElse(null);
-            if (${this.camelCase(relatedClassName)} != null) {
-                entity.set${this.capitalize(relatedClassName)}(${this.camelCase(relatedClassName)});
-            } else {
-                throw new IllegalArgumentException("El/la ${relatedClassName.toLowerCase()} especificado(a) no existe.");
-            }
-        }
-        `;
-                    } else {
-                        mayores[`${cls.name}`] = true;
-                    }
-                }
-            }
-        });
-
-    const dependencyInjections = Array.from(dependencies)
-        .map((dep) => `private final ${dep} ${this.camelCase(dep)};`)
-        .join('\n    ');
-
-    const constructorParams = [
-        `${entityName}Repository repository`,
-        ...Array.from(dependencies).map((dep) => `${dep} ${this.camelCase(dep)}`),
-    ].join(', ');
-
-    const constructorAssignments = Array.from(dependencies)
-        .map(
-            (dep) =>
-                `this.${this.camelCase(dep)} = ${this.camelCase(dep)};`
-        )
-        .join('\n        ');
+  private generateCreateComponent(crud: CrudPage): string {
+    const modelName = this.getModelNameFromCrud(crud);
+    const className = this.capitalizeFirstLetter(modelName);
+    const navbar = crud.children.find((c) => c.type === 'Navbar') as Navbar;
+    const sidebar = crud.children.find((c) => c.type === 'Sidebar') as Sidebar;
 
     return `
-package com.example.demo.services;
-
-import com.example.demo.entities.*;
-import com.example.demo.repositories.*;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-
-@Service
-public class ${entityName}Service {
-
-    private final ${entityName}Repository repository;
-    ${dependencyInjections}
-
-    public ${entityName}Service(${constructorParams}) {
-        this.repository = repository;
-        ${constructorAssignments}
+  import { Component } from '@angular/core';
+  import { Router } from '@angular/router';
+  import { ${className}Service } from '../../services/${modelName}.service';
+  import { ${className} } from '../../models/${modelName}.model';
+  
+  @Component({
+    selector: 'app-${modelName}-create',
+    templateUrl: './${modelName}-create.component.html'
+  })
+  export class ${className}CreateComponent {
+    item: ${className} = { id: 0, ${this.getAttributesDefaultValues(crud)} };
+  
+    // 🔥 Para navbar y sidebar
+    navbarLinks = ${navbar ? JSON.stringify(navbar.links, null, 2) : '[]'};
+    sidebarLinks = ${sidebar ? JSON.stringify(sidebar.links, null, 2) : '[]'};
+  
+    constructor(private service: ${className}Service, private router: Router) {}
+  
+    save(): void {
+      this.service.create(this.item);
+      this.router.navigate(['/${this.toKebabCase(crud.crudName)}']);
     }
+  }
+    `;
+  }
 
-    public List<${entityName}> findAll() {
-        return repository.findAll();
-    }
-
-    public ${entityName} save(${entityName} entity) {
-        ${saveLogic}
-        return repository.save(entity);
-    }
-
-    public ${entityName} findById(Integer id) {
-        return repository.findById(id).orElse(null);
-    }
-
-    public void delete(Integer id) {
-        repository.deleteById(id);
-    }
-}
-`;
-}
-
-
-  generateControllerCode(entityName: string): string {
-    return `
-package com.example.demo.controllers;
-
-import com.example.demo.entities.${entityName};
-import com.example.demo.services.${entityName}Service;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-
-@RestController
-@RequestMapping("/api/${entityName.toLowerCase()}s")
-public class ${entityName}Controller {
-
-    private final ${entityName}Service service;
-
-    public ${entityName}Controller(${entityName}Service service) {
-        this.service = service;
-    }
-
-    @GetMapping
-    public List<${entityName}> getAll() {
-        return service.findAll();
-    }
-
-    @GetMapping("/{id}")
-    public ${entityName} getById(@PathVariable Integer id) {
-        return service.findById(id);
-    }
-
-    @PostMapping
-    public ${entityName} create(@RequestBody ${entityName} entity) {
-        return service.save(entity);
-    }
-
-    @PutMapping("/{id}")
-    public ${entityName} update(@PathVariable Integer id, @RequestBody ${entityName} entity) {
-        ${entityName} existing = service.findById(id);
-        if (existing != null) {
-            entity.setId(id);
-            return service.save(entity);
+  private generateCreateHtml(crud: CrudPage): string {
+    const list = crud.children.find((c) => c.type === 'List') as List;
+    const crudName = this.toKebabCase(crud.crudName);
+    const hasNavbar = crud.children.some((c) => c.type === 'Navbar');
+    const hasSidebar = crud.children.some((c) => c.type === 'Sidebar');
+  
+    const formFields = list.attributes
+      .map((attr) => {
+        if (attr.type === 'checkbox') {
+          return `
+          <div class="form-check mb-3">
+            <input type="checkbox" class="form-check-input" id="${attr.name}" [(ngModel)]="item.${attr.name}" name="${attr.name}">
+            <label class="form-check-label" for="${attr.name}">${attr.label}</label>
+          </div>
+          `;
+        } else if (attr.type === 'date') {
+          return `
+          <div class="mb-3">
+            <label>${attr.label}</label>
+            <input class="form-control" [(ngModel)]="item.${attr.name}" name="${attr.name}" type="date" required />
+          </div>
+          `;
+        } else {
+          return `
+          <div class="mb-3">
+            <label>${attr.label}</label>
+            <input class="form-control" [(ngModel)]="item.${attr.name}" name="${attr.name}" type="text" required />
+          </div>
+          `;
         }
-        return null;
+      })
+      .join('\n');
+  
+    return `
+    <div class="container-fluid">
+  
+      ${hasNavbar ? '<app-shared-navbar [links]="navbarLinks"></app-shared-navbar>' : ''}
+  
+      <div class="row">
+        ${hasSidebar ? '<div class="col-2"><app-shared-sidebar [links]="sidebarLinks"></app-shared-sidebar></div>' : ''}
+        <main class="${hasSidebar ? 'col-10' : 'col-12'}">
+          <h2>Crear Nuevo ${list.modelName}</h2>
+          <form (ngSubmit)="save()">
+            ${formFields}
+            <div class="d-flex">
+              <button type="submit" class="btn btn-success">Guardar</button>
+              <a routerLink="/${crudName}" class="btn btn-secondary ms-2">Cancelar</a>
+            </div>
+          </form>
+        </main>
+      </div>
+  
+    </div>
+    `;
+  }
+  
+
+  private generateEditComponent(crud: CrudPage): string {
+    const modelName = this.getModelNameFromCrud(crud);
+    const className = this.capitalizeFirstLetter(modelName);
+    const navbar = crud.children.find((c) => c.type === 'Navbar') as Navbar;
+    const sidebar = crud.children.find((c) => c.type === 'Sidebar') as Sidebar;
+
+    return `
+  import { Component } from '@angular/core';
+  import { ActivatedRoute, Router } from '@angular/router';
+  import { ${className}Service } from '../../services/${modelName}.service';
+  import { ${className} } from '../../models/${modelName}.model';
+  
+  @Component({
+    selector: 'app-${modelName}-edit',
+    templateUrl: './${modelName}-edit.component.html'
+  })
+  export class ${className}EditComponent {
+    item: ${className} | null = null;
+    index: number = -1;
+  
+    // 🔥 Para navbar y sidebar
+    navbarLinks = ${navbar ? JSON.stringify(navbar.links, null, 2) : '[]'};
+    sidebarLinks = ${sidebar ? JSON.stringify(sidebar.links, null, 2) : '[]'};
+  
+    constructor(
+      private service: ${className}Service,
+      private router: Router,
+      private route: ActivatedRoute
+    ) {
+      this.index = Number(this.route.snapshot.paramMap.get('id'));
+      this.item = this.service.getByIndex(this.index);
     }
-
-    @DeleteMapping("/{id}")
-    public void delete(@PathVariable Integer id) {
-        service.delete(id);
+  
+    save(): void {
+      if (this.item) {
+        this.service.update(this.index, this.item);
+        this.router.navigate(['/${this.toKebabCase(crud.crudName)}']);
+      }
     }
-}
-`;
+  }
+    `;
   }
 
-  findClassNameById(classId: number): string {
-    const cls = JSON.parse(this.model)?.nodeDataArray.find(
-      (node: Node) => node.key === classId
-    );
-    return cls ? cls.name : 'Unknown';
+  private generateEditHtml(crud: CrudPage): string {
+    const list = crud.children.find((c) => c.type === 'List') as List;
+    const crudName = this.toKebabCase(crud.crudName);
+    const hasNavbar = crud.children.some((c) => c.type === 'Navbar');
+    const hasSidebar = crud.children.some((c) => c.type === 'Sidebar');
+  
+    const formFields = list.attributes
+      .map((attr) => {
+        if (attr.type === 'checkbox') {
+          return `
+          <div class="form-check mb-3">
+            <input type="checkbox" class="form-check-input" id="${attr.name}" [(ngModel)]="item.${attr.name}" name="${attr.name}">
+            <label class="form-check-label" for="${attr.name}">${attr.label}</label>
+          </div>
+          `;
+        } else if (attr.type === 'date') {
+          return `
+          <div class="mb-3">
+            <label>${attr.label}</label>
+            <input class="form-control" [(ngModel)]="item.${attr.name}" name="${attr.name}" type="date" required />
+          </div>
+          `;
+        } else {
+          return `
+          <div class="mb-3">
+            <label>${attr.label}</label>
+            <input class="form-control" [(ngModel)]="item.${attr.name}" name="${attr.name}" type="text" required />
+          </div>
+          `;
+        }
+      })
+      .join('\n');
+  
+    return `
+    <div class="container-fluid">
+  
+      ${hasNavbar ? '<app-shared-navbar [links]="navbarLinks"></app-shared-navbar>' : ''}
+  
+      <div class="row">
+        ${hasSidebar ? '<div class="col-2"><app-shared-sidebar [links]="sidebarLinks"></app-shared-sidebar></div>' : ''}
+        <main class="${hasSidebar ? 'col-10' : 'col-12'}">
+          <h2>Editar ${list.modelName}</h2>
+          <form *ngIf="item" (ngSubmit)="save()">
+            ${formFields}
+            <div class="d-flex">
+              <button type="submit" class="btn btn-primary">Actualizar</button>
+              <a routerLink="/${crudName}" class="btn btn-secondary ms-2">Cancelar</a>
+            </div>
+          </form>
+        </main>
+      </div>
+  
+    </div>
+    `;
+  }
+  
+
+  private generateAppRoutingModule(crudPages: CrudPage[]): string {
+    const imports = crudPages.flatMap((crud) => {
+      const crudNameKebab = this.toKebabCase(crud.crudName);
+      const modelName = this.getModelNameFromCrud(crud);
+      const className = this.capitalizeFirstLetter(modelName);
+      return [
+        `import { ${className}IndexComponent } from './pages/${crudNameKebab}/${modelName}-index.component';`,
+        `import { ${className}CreateComponent } from './pages/${crudNameKebab}/${modelName}-create.component';`,
+        `import { ${className}EditComponent } from './pages/${crudNameKebab}/${modelName}-edit.component';`,
+      ];
+    }).join('\n');
+  
+    const routes = crudPages.flatMap((crud) => {
+      const crudNameKebab = this.toKebabCase(crud.crudName);
+      return [
+        `{ path: '${crudNameKebab}', component: ${this.capitalizeFirstLetter(this.getModelNameFromCrud(crud))}IndexComponent },`,
+        `{ path: '${crudNameKebab}/create', component: ${this.capitalizeFirstLetter(this.getModelNameFromCrud(crud))}CreateComponent },`,
+        `{ path: '${crudNameKebab}/edit/:id', component: ${this.capitalizeFirstLetter(this.getModelNameFromCrud(crud))}EditComponent },`,
+      ];
+    }).join('\n  ');
+  
+    const defaultCrud = crudPages.length > 0 ? this.toKebabCase(crudPages[0].crudName) : '';
+  
+    return `
+  import { NgModule } from '@angular/core';
+  import { RouterModule, Routes } from '@angular/router';
+  
+  ${imports}
+  
+  const routes: Routes = [
+    ${routes}
+    { path: '', redirectTo: '/${defaultCrud}', pathMatch: 'full' },
+  ];
+  
+  @NgModule({
+    imports: [RouterModule.forRoot(routes)],
+    exports: [RouterModule]
+  })
+  export class AppRoutingModule {}
+    `.trim();
   }
 
-  mapType(type: string): string {
-    const typeMap: { [key: string]: string } = {
-      int: 'Integer',
-      string: 'String',
-      date: 'LocalDate',
-      boolean: 'Boolean',
-      datetime: 'LocalDateTime',
-      float: 'Float',
-      char: 'Character',
-    };
-    return typeMap[type] || 'String';
+  private generateAppModule(crudPages: CrudPage[]): string {
+    let hasNavbar = false;
+    let hasSidebar = false;
+  
+    // Detectar si al menos un CRUD tiene Navbar o Sidebar
+    for (const crud of crudPages) {
+      if (crud.children.some(c => c.type === 'Navbar')) {
+        hasNavbar = true;
+      }
+      if (crud.children.some(c => c.type === 'Sidebar')) {
+        hasSidebar = true;
+      }
+    }
+  
+    const imports = crudPages.flatMap((crud) => {
+      const crudNameKebab = this.toKebabCase(crud.crudName);
+      const modelName = this.getModelNameFromCrud(crud);
+      const className = this.capitalizeFirstLetter(modelName);
+      return [
+        `import { ${className}IndexComponent } from './pages/${crudNameKebab}/${modelName}-index.component';`,
+        `import { ${className}CreateComponent } from './pages/${crudNameKebab}/${modelName}-create.component';`,
+        `import { ${className}EditComponent } from './pages/${crudNameKebab}/${modelName}-edit.component';`,
+      ];
+    }).join('\n');
+  
+    return `
+  import { NgModule } from '@angular/core';
+  import { BrowserModule } from '@angular/platform-browser';
+  import { FormsModule } from '@angular/forms';
+  import { RouterModule } from '@angular/router';
+  
+  import { AppComponent } from './app.component';
+  import { AppRoutingModule } from './app-routing.module';
+  
+  ${hasNavbar ? `import { NavbarComponent } from './shared/navbar/navbar.component';` : ''}
+  ${hasSidebar ? `import { SidebarComponent } from './shared/sidebar/sidebar.component';` : ''}
+  
+  ${imports}
+  
+  @NgModule({
+    declarations: [
+      AppComponent,
+      ${hasNavbar ? 'NavbarComponent,' : ''}
+      ${hasSidebar ? 'SidebarComponent,' : ''}
+      ${crudPages.flatMap((crud) => {
+        const modelName = this.getModelNameFromCrud(crud);
+        const className = this.capitalizeFirstLetter(modelName);
+        return [
+          `${className}IndexComponent`,
+          `${className}CreateComponent`,
+          `${className}EditComponent`,
+        ];
+      }).join(',\n    ')}
+    ],
+    imports: [
+      BrowserModule,
+      FormsModule,
+      RouterModule,
+      AppRoutingModule
+    ],
+    providers: [],
+    bootstrap: [AppComponent]
+  })
+  export class AppModule {}
+    `.trim();
+  }
+  
+
+  private generateAppComponent(): string {
+    return `
+  import { Component } from '@angular/core';
+  
+  @Component({
+    selector: 'app-root',
+    template: '<router-outlet></router-outlet>'
+  })
+  export class AppComponent {}
+    `.trim();
+  }
+  
+  private getLocationValue(location: string, axis: 'x' | 'y'): number {
+    if (!location) return 0;
+    const parts = location.split(' ').map(Number);
+    if (axis === 'x') {
+      return parts[0] || 0;
+    } else {
+      return parts[1] || 0;
+    }
+  }
+  
+  
+  
+
+  private getAttributesDefaultValues(crud: CrudPage): string {
+    const list = crud.children.find((child) => child.type === 'List') as List;
+    if (!list) return '';
+
+    return list.attributes
+      .map((attr) => `${attr.name}: ${this.getDefaultValue(attr.type)}`)
+      .join(', ');
   }
 
-  camelCase(str: string): string {
-    if (!str) return '';
-    return str.charAt(0).toLowerCase() + str.slice(1);
+  private getDefaultValue(type: string): string {
+    switch (type.toLowerCase()) {
+      case 'string':
+        return `''`;
+      case 'number':
+        return `0`;
+      case 'date':
+        return `new Date()`;
+      case 'boolean':
+        return `false`;
+      default:
+        return `''`;
+    }
   }
 
-  capitalize(str: string): string {
-    if (!str) return '';
-    return str.charAt(0).toUpperCase() + str.slice(1);
+  private generateMockData(className: string, attributes: Attribute[]): string {
+    const exampleItem = attributes
+      .map((attr) => {
+        if (attr.type === 'text') {
+          return `${attr.name}: '${attr.label}'`;
+        } else if (attr.type === 'number') {
+          return `${attr.name}: 23`;
+        } else if (attr.type === 'date') {
+          return `${attr.name}: new Date('2001-06-29')`;
+        } else if (attr.type === 'checkbox') {
+          return `${attr.name}: false`;
+        } else {
+          return `${attr.name}: 'Marina Cadima'`;
+        }
+      })
+      .join(',\n      ');
+
+    return `{
+    id: 1,
+        ${exampleItem}
+      }`;
   }
 
+  private capitalizeFirstLetter(text: string): string {
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  private mapAttributeType(type: string): string {
+    switch (type.toLowerCase()) {
+      case 'string':
+        return 'string';
+      case 'number':
+        return 'number';
+      case 'date':
+        return 'Date';
+      case 'boolean':
+        return 'boolean';
+      default:
+        return 'any';
+    }
+  }
+
+  private toKebabCase(text: string): string {
+    return text
+      .replace(/\s+/g, '-') // espacios por guiones
+      .replace(/[^\w\-]+/g, '') // quitar caracteres raros
+      .toLowerCase();
+  }
+
+  private getModelNameFromCrud(crud: CrudPage): string {
+    const list = crud.children.find((child) => child.type === 'List') as
+      | List
+      | undefined;
+    return list ? list.modelName.toLowerCase() : 'model';
+  }
+
+  // 🧩 3. Descargar los archivos como un ZIP
   downloadZip() {
-    const files = this.generateCode();
-    if (!files || files.length === 0) {
-      console.error('No se generaron archivos para el ZIP.');
-      return;
-    }
+    const parsedPages = this.parseModel();
+    const files = this.generateFiles(parsedPages);
 
     const zip = new JSZip();
-
     files.forEach((file) => {
       zip.file(file.path, file.content);
     });
@@ -786,10 +905,8 @@ public class ${entityName}Controller {
     zip
       .generateAsync({ type: 'blob' })
       .then((content) => {
-        saveAs(content, 'springboot_code.zip');
+        saveAs(content, 'angular_mockup_project.zip');
       })
-      .catch((err) => {
-        console.error('Error al generar el ZIP:', err);
-      });
+      .catch((error) => console.error('Error al generar el ZIP:', error));
   }
 }
