@@ -247,6 +247,10 @@ export class BoardComponent implements AfterViewInit, OnInit, OnDestroy {
     });
 
     this.myDiagram.addModelChangedListener((e) => {
+      if (this.myDiagram) {
+        this.jsonmodel = this.myDiagram.model.toJson();
+        console.log('[ModelChanged] jsonmodel actualizado:', this.jsonmodel);
+      }
       if (this.isApplyingRemoteChanges) return;
       if (
         e.change === go.ChangedEvent.Remove &&
@@ -1312,6 +1316,8 @@ export class BoardComponent implements AfterViewInit, OnInit, OnDestroy {
         nodeDataArray: model.nodeDataArray,
         linkDataArray: [],
       });
+      // Inicializar jsonModel con el modelo del diagrama
+      this.jsonmodel = this.myDiagram.model.toJson();
     } else {
       console.log('[Init] Inicializando modelo vacío');
       this.myDiagram.model = new go.GraphLinksModel({
@@ -1320,7 +1326,10 @@ export class BoardComponent implements AfterViewInit, OnInit, OnDestroy {
         nodeDataArray: [],
         linkDataArray: [],
       });
+      // Inicializar jsonModel con el modelo del diagrama
+      this.jsonmodel = this.myDiagram.model.toJson();
     }
+
   }
 
   setClass(type: string, inputType?: string) {

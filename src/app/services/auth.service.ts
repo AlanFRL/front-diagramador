@@ -10,8 +10,6 @@ import { Router } from '@angular/router';
 })
 export class AuthService {
   //private apiUrl = 'http://localhost:3000/auth';  // URL del backend
-  //https://api-diagramador-k9q5.onrender.com
-  //http://localhost:3000/auth
   private apiUrl = 'https://back-diagramador.onrender.com/auth';  // URL del backend
 
 
@@ -19,7 +17,6 @@ export class AuthService {
 
   login(email: string, password: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/login`, { 
-      
       "email": email, // Asegúrate de que los nombres de los campos coincidan
       "password":password
      });

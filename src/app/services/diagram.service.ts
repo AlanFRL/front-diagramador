@@ -9,8 +9,6 @@ import { Observable } from 'rxjs';
 export class DiagramService {
   private apiUrl = 'https://back-diagramador.onrender.com/diagrams';
   //private apiUrl = 'http://localhost:3000/diagrams';
-  //https://api-diagramador-k9q5.onrender.com
-  //http://localhost:3000/diagrams
 
   constructor(private http: HttpClient) { }
 

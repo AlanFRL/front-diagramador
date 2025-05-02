@@ -13,12 +13,6 @@ export class SocketService {
 
   // Conectar al servidor socket y unirse a una sala
   connectToRoom(roomCode: string): void {
-    // this.socket = io('https://serversocket-4e7a.onrender.com', {
-    //   query: { nameRoom: roomCode }
-    //https://serversocket-mjvx.onrender.com
-    //http://localhost:5000
-    //https://serversocket-mjvx.onrender.com
-    // });
 
     /*
     this.socket = io('http://localhost:5000', {
